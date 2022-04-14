@@ -9,22 +9,34 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(glad REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
-find_package(imgui CONFIG REQUIRED)
 
-add_executable(${PROJECT_NAME} main.cpp)
+
+set(IMGUI_DIR "ThirdParty/imgui/")
+add_executable(${PROJECT_NAME} 
+        main.cpp
+        Sample.cpp
+
+        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp 
+        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+        ${IMGUI_DIR}/imgui.cpp 
+        ${IMGUI_DIR}/imgui_draw.cpp 
+        ${IMGUI_DIR}/imgui_demo.cpp 
+        ${IMGUI_DIR}/imgui_tables.cpp 
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        )
+
+# 
+if (NOT ROOT_SHADERS_PATH)
+    set(ROOT_SHADERS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
+endif()
+message("Root path is: ${ROOT_SHADERS_PATH}")
+add_compile_definitions(ROOT_SHADERS_PATH="${ROOT_SHADERS_PATH}")
+
 target_link_libraries(${PROJECT_NAME}
         ${OPENGL_LIBRARIES}
         glfw
         glad::glad
-        imgui:imgui
         )
-
-
-
-set(FB_TARGET bs_pre)
-#add_custom_target(${FB_TARGET}
-#        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/line.frag ${CMAKE_CURRENT_BINARY_DIR}/line.frag
-#        )
-#message(${CMAKE_CURRENT_SOURCE_DIR})
-
-#add_dependencies(${PROJECT_NAME} ${FB_TARGET})
+target_include_directories(${PROJECT_NAME}
+        PRIVATE ./ThirdParty
+        PRIVATE ./)   
