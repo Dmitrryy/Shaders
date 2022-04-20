@@ -15,11 +15,14 @@ namespace sh
     {
         GLFWwindow *m_window = {};
         std::string m_rootPath;
+
         std::filesystem::path m_currentShader;
+        std::filesystem::file_time_type m_changeTime;
 
         double m_time = {};
         bool m_isSleep = false;
 
+        std::string m_errorLog;
         bool m_isCompiled = false;
         unsigned m_shaderProgram = {};
         unsigned m_EBO = {};
@@ -35,7 +38,7 @@ namespace sh
         void run();
 
     private:
-        void compile(const std::string &fragShaderPath);
+        void compile(const std::filesystem::path &fragShaderPath);
 
         void processInput();
         void updateUniforms() const;

@@ -92,8 +92,9 @@ namespace sh
         glfwTerminate();
     }
 
-    void Sample::compile(const std::string &fragShaderPath)
+    void Sample::compile(const std::filesystem::path &fragShaderPath)
     {
+        m_changeTime = std::filesystem::last_write_time(fragShaderPath);
         if (m_isCompiled)
         {
             glDeleteProgram(m_shaderProgram);
@@ -110,15 +111,15 @@ namespace sh
         if (!success)
         {
             glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-                      << infoLog << std::endl;
+            m_errorLog = infoLog;
+
             glDeleteShader(vertexShader);
 
             return;
         }
         // fragment shader
         unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        auto &&fragmentShaderSource = readFile(fragShaderPath);
+        auto &&fragmentShaderSource = readFile(fragShaderPath.string());
         auto *tmp = fragmentShaderSource.data();
         glShaderSource(fragmentShader, 1, &tmp, NULL);
         glCompileShader(fragmentShader);
@@ -127,8 +128,8 @@ namespace sh
         if (!success)
         {
             glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-                      << infoLog << std::endl;
+            m_errorLog = infoLog;
+
             glDeleteShader(vertexShader);
             glDeleteShader(fragmentShader);
             return;
@@ -143,8 +144,8 @@ namespace sh
         if (!success)
         {
             glGetProgramInfoLog(m_shaderProgram, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
-                      << infoLog << std::endl;
+            m_errorLog = infoLog;
+
             glDeleteShader(vertexShader);
             glDeleteShader(fragmentShader);
             glDeleteProgram(m_shaderProgram);
@@ -153,6 +154,7 @@ namespace sh
         glDeleteShader(fragmentShader);
 
         m_isCompiled = true;
+        m_errorLog.clear();
     }
 
     void Sample::run()
@@ -173,6 +175,13 @@ namespace sh
                 m_time += timer.elapsed();
             timer.reset();
 
+            if (!m_currentShader.empty()) {
+                auto&& curTime = std::filesystem::last_write_time(m_currentShader);
+                if (curTime > m_changeTime) {
+                    compile(m_currentShader);
+                }
+            }
+
             // input
             // -----
             processInput();
@@ -189,6 +198,13 @@ namespace sh
             ImGui::SameLine();
             ImGui::Text(m_currentShader.filename().string().data());
             ImGui::Text("Compiled: %s", (m_isCompiled) ? "yes" : "no");
+            ImGui::InputDouble("Time", &m_time, 0.2);
+            ImGui::Checkbox("Sleep", &m_isSleep);
+            double xpos, ypos;
+            glfwGetCursorPos(m_window, &xpos, &ypos);
+            ImGui::Text("Cursor position (%lf, %lf)", xpos, ypos);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
             // open file dialog when user clicks this button
             if (ImGui::Button("open file dialog"))
             {
@@ -197,33 +213,42 @@ namespace sh
                 fileDialog.Open();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Recompile") && m_isCompiled)
+            if (ImGui::Button("Recompile") && !m_currentShader.empty())
             {
-                compile(m_currentShader.string());
+                compile(m_currentShader);
             }
 
             fileDialog.Display();
             if (fileDialog.HasSelected())
             {
-                compile(fileDialog.GetSelected().string());
+                compile(fileDialog.GetSelected());
                 m_currentShader = fileDialog.GetSelected();
                 fileDialog.ClearSelected();
             }
 
-            ImGui::InputDouble("Time", &m_time, 0.2);
-            ImGui::Checkbox("Sleep", &m_isSleep);
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::Text("Compile Log:");
+            if (!m_errorLog.empty())
+            {
+                ImGui::Text(m_errorLog.data());
+            }
+            else
+            {
+                ImGui::Text("success");
+            }
+
             ImGui::End();
             // -----
             // End the Dear ImGui frame
+            if (m_isCompiled)
+            {
+                glUseProgram(m_shaderProgram);
 
-            glUseProgram(m_shaderProgram);
+                updateUniforms();
 
-            updateUniforms();
-
-            glBindVertexArray(m_VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(m_VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            }
 
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

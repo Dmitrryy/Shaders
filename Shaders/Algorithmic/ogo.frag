@@ -35,10 +35,11 @@ void main() {
     p.x *= u_resolution.x / u_resolution.y;
 
     float l = length(p);
+    p = normalize(p);
 
     // st - is just a circle in the center
     // (sin(z) + 1.0) - adds the effect of disappearing and changing the image
-    vec2 uv = st + p / l * (sin(z) + 1.0) * abs(sin(l * 9.0 - z * 2.0));
+    vec2 uv = st + p / l * 0.5 * (sin(z) + 1.0) * abs(sin(l * 9.0 - z * 2.0));
 	resColor = vec3(0.01 / length(mod(uv, 1.0) - 0.5)) + vec3(0.0, 0.07, 0.14);
 
 	gl_FragColor=vec4(resColor / l, u_time);
